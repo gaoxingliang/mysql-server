@@ -1214,10 +1214,10 @@ struct trx_t {
 #ifndef UNIV_HOTBACKUP
 
 /* Transaction isolation levels (trx->isolation_level) */
-#define TRX_ISO_READ_UNCOMMITTED trx_t::READ_UNCOMMITTED
-#define TRX_ISO_READ_COMMITTED trx_t::READ_COMMITTED
-#define TRX_ISO_REPEATABLE_READ trx_t::REPEATABLE_READ
-#define TRX_ISO_SERIALIZABLE trx_t::SERIALIZABLE
+#define TRX_ISO_READ_UNCOMMITTED trx_t::READ_UNCOMMITTED  // 0
+#define TRX_ISO_READ_COMMITTED trx_t::READ_COMMITTED      // 1
+#define TRX_ISO_REPEATABLE_READ trx_t::REPEATABLE_READ    // 2
+#define TRX_ISO_SERIALIZABLE trx_t::SERIALIZABLE          // 3
 
 /**
 Check if transaction is started.

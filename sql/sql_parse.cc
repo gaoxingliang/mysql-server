@@ -5253,9 +5253,9 @@ void mysql_parse(THD *thd, Parser_state *parser_state) {
           auto mgr_ptr = resourcegroups::Resource_group_mgr::instance();
           bool switched = mgr_ptr->switch_resource_group_if_needed(
               thd, &src_res_grp, &dest_res_grp, &ticket, &cur_ticket);
-
+            printf("========================Start executing query======================== --%s\n", thd->query().str);
           error = mysql_execute_command(thd, true);
-
+            printf("========================Finish executing query======================== --%s\n", thd->query().str);
           if (switched)
             mgr_ptr->restore_original_resource_group(thd, src_res_grp,
                                                      dest_res_grp);

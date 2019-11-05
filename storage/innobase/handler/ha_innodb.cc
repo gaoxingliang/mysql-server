@@ -5173,6 +5173,8 @@ static int innobase_start_trx_and_assign_read_view(
     THD *thd)         /*!< in: MySQL thread handle of the user for
                       whom the transaction should be committed */
 {
+
+    printf("\n !!!!DEBUGME innobase_start_trx_and_assign_read_view");
   DBUG_TRACE;
   DBUG_ASSERT(hton == innodb_hton_ptr);
 
@@ -5197,13 +5199,15 @@ static int innobase_start_trx_and_assign_read_view(
       innobase_map_isolation_level(thd_get_trx_isolation(thd));
 
   if (trx->isolation_level == TRX_ISO_REPEATABLE_READ) {
-    trx_assign_read_view(trx);
+    ReadView *rv = trx_assign_read_view(trx);
+    printf("The isolation leveval is REPEATABLE_READ. let's bind the view. trx is %p, bindedview is: %p \n", trx, rv);
   } else {
     push_warning_printf(thd, Sql_condition::SL_WARNING, HA_ERR_UNSUPPORTED,
                         "InnoDB: WITH CONSISTENT SNAPSHOT"
                         " was ignored because this phrase"
                         " can only be used with"
                         " REPEATABLE READ isolation level.");
+      printf("The isolation leveval is NOT REPEATABLE_READ. NOT bind the view. trx is %p\n", trx);
   }
 
   /* Set the MySQL flag to mark that there is an active transaction */
@@ -18133,13 +18137,25 @@ int ha_innobase::external_lock(THD *thd, /*!< in: handle to the user thread */
         ut_d(trx->is_dd_trx = false);
       }
 
+      /**
+       * trx0trx.h 定义的隔离级别
+       * #define TRX_ISO_READ_UNCOMMITTED trx_t::READ_UNCOMMITTED  // 0
+#define TRX_ISO_READ_COMMITTED trx_t::READ_COMMITTED      // 1
+#define TRX_ISO_REPEATABLE_READ trx_t::REPEATABLE_READ    // 2
+#define TRX_ISO_SERIALIZABLE trx_t::SERIALIZABLE          // 3
+       */
+
     } else if (trx->isolation_level <= TRX_ISO_READ_COMMITTED &&
                MVCC::is_view_active(trx->read_view)) {
       mutex_enter(&trx_sys->mutex);
-
+        printf("[Before]The trx view will be  closed when unlocking because the trx %p, view %p,  isolation level %d , \n", trx, trx -> read_view, trx->isolation_level);
       trx_sys->mvcc->view_close(trx->read_view, true);
+      // close view 视图为NULL
+        printf("[After]The trx view Has closed when unlocking the trx %p, view %p,  isolation level %d , \n", trx, trx -> read_view, trx->isolation_level);
 
-      mutex_exit(&trx_sys->mutex);
+        mutex_exit(&trx_sys->mutex);
+    } else {
+        printf("The trx view is not closed when unlocking  because the trx %p, view %p,  isolation level %d , \n", trx, trx -> read_view, trx->isolation_level);
     }
   }
 
@@ -18739,12 +18755,15 @@ THR_LOCK_DATA **ha_innobase::store_lock(
         MVCC::is_view_active(trx->read_view)) {
       /* At low transaction isolation levels we let
       each consistent read set its own snapshot */
-
+        printf("The view will be closed because the isolation level is <= TRX_ISO_READ_COMMITTED for trx=%p, view=%p\n", trx, trx->read_view);
       mutex_enter(&trx_sys->mutex);
 
       trx_sys->mvcc->view_close(trx->read_view, true);
 
       mutex_exit(&trx_sys->mutex);
+    }
+    else {
+        printf("The view will NOT be closed for trx=%p, view=%p\n", trx, trx->read_view);
     }
   }
 

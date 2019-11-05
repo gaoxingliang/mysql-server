@@ -164,23 +164,46 @@ class ReadView {
   bool changes_visible(trx_id_t id, const table_name_t &name) const
       MY_ATTRIBUTE((warn_unused_result)) {
     ut_ad(id > 0);
+    /**
+     *   /** The read should not see any transaction with trx id >= this
+  value. In other words, this is the "high water mark". */
+    //  trx_id_t m_low_limit_id;
+
+      /** The read should see all trx ids which are strictly
+      smaller (<) than this value.  In other words, this is the
+      low water mark". */
+     // trx_id_t m_up_limit_id;
+
+      /** trx id of creating transaction, set to TRX_ID_MAX for free
+      views. */
+     // trx_id_t m_creator_trx_id;
+
 
     if (id < m_up_limit_id || id == m_creator_trx_id) {
-      return (true);
+        printf("Current View Case 1 %p Is change visible %d for table %s and current view - can't see >= %d. should see < %d, creator is %d . final is change visible=%d (FALSE=0)\n",
+               this, id, name.m_name, m_low_limit_id, m_up_limit_id, m_creator_trx_id, true);
+        return (true);
+    } else {
+        check_trx_id_sanity(id, name);
+
+        if (id >= m_low_limit_id) {
+            printf("Current View Case 2 %p Is change visible %d for table %s and current view - can't see >= %d. should see < %d, creator is %d . final is change visible=%d (FALSE=0)\n",
+                   this, id, name.m_name, m_low_limit_id, m_up_limit_id, m_creator_trx_id, false);
+            return (false);
+        } else if (m_ids.empty()) {
+            printf("Current View Case 3: %p Is change visible %d for table %s and current view - can't see >= %d. should see < %d, creator is %d . final is change visible=%d (FALSE=0)\n",
+                   this, id, name.m_name, m_low_limit_id, m_up_limit_id, m_creator_trx_id, true);
+            return (true);
+        }
+
+        const ids_t::value_type *p = m_ids.data();
+        printf("Case BT SEARCH\n ");
+        bool changeVis = (!std::binary_search(p, p + m_ids.size(), id));
+        printf("Current View %p Is change visible %d for table %s and current view - can't see >= %d. should see < %d, creator is %d . final is change visible=%d (FALSE=0)\n",
+               this, id, name.m_name, m_low_limit_id, m_up_limit_id, m_creator_trx_id, changeVis);
+        return changeVis;
     }
 
-    check_trx_id_sanity(id, name);
-
-    if (id >= m_low_limit_id) {
-      return (false);
-
-    } else if (m_ids.empty()) {
-      return (true);
-    }
-
-    const ids_t::value_type *p = m_ids.data();
-
-    return (!std::binary_search(p, p + m_ids.size(), id));
   }
 
   /**

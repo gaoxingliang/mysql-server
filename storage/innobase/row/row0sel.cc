@@ -38,7 +38,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
  *******************************************************/
 
 #include "row0sel.h"
-
+#include <stdio.h>
 #include <sys/types.h>
 
 #include "btr0btr.h"
@@ -2164,6 +2164,8 @@ que_thr_t *row_sel_step(que_thr_t *thr) /*!< in: query thread */
     plan_reset_cursor(sel_node_get_nth_plan(node, 0));
 
     if (node->consistent_read) {
+
+        printf("\n!!!!DEBUGME Got consistent_read");
       /* Assign a read view for the query */
       trx_assign_read_view(thr_get_trx(thr));
 
@@ -4794,10 +4796,10 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
       index != clust_index && prebuilt->need_to_access_clustered;
 
   /* Do some start-of-statement preparations */
-
+    printf("prebuild object found - prebuild=%p trx=%p\n ", &prebuilt, &trx);
   if (!prebuilt->sql_stat_start) {
     /* No need to set an intention lock or assign a read view */
-
+    printf("Not the first time for prebuild %p\n", &prebuilt);
     if (!MVCC::is_view_active(trx->read_view) && !srv_read_only_mode &&
         prebuilt->select_lock_type == LOCK_NONE) {
       ib::error(ER_IB_MSG_1031) << "MySQL is trying to perform a"
@@ -4810,9 +4812,13 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   } else if (prebuilt->select_lock_type == LOCK_NONE) {
     /* This is a consistent read */
     /* Assign a read view for the query */
-
+    printf("lock type is none, a a consistent read --- prebuild=%p trx=%p \n", &prebuilt, &trx);
     if (!srv_read_only_mode) {
-      trx_assign_read_view(trx);
+
+      ReadView * rv = trx_assign_read_view(trx);
+        printf(" try assign read view prebuild=%p trx=%p RV=%p\n", &prebuilt, &trx, &rv);
+    }  else {
+        printf(" not try assign read view prebuild=%p trx=%p \n", &prebuilt, &trx);
     }
 
     prebuilt->sql_stat_start = FALSE;
@@ -5310,10 +5316,12 @@ rec_loop:
       one is not visible in the snapshot; if we have a very
       high force recovery level set, we try to avoid crashes
       by skipping this lookup */
-
+      printf("Fetch a previous version of the row if the current one is not visible in the snapshot - "
+             "current trans %p view is - %p\n", trx, trx_get_read_view(trx));
       if (srv_force_recovery < 5 &&
           !lock_clust_rec_cons_read_sees(rec, index, offsets,
                                          trx_get_read_view(trx))) {
+          printf("Need to restore previous versions by undo logs of view - %p \n", trx_get_read_view(trx));
         rec_t *old_vers;
         /* The following call returns 'offsets' associated with 'old_vers' */
         err = row_sel_build_prev_vers_for_mysql(
@@ -5334,6 +5342,9 @@ rec_loop:
 
         rec = old_vers;
         prev_rec = rec;
+      }
+      else {
+          printf("NO need to restore previous versions of view - %p \n", trx_get_read_view(trx));
       }
     } else {
       /* We are looking into a non-clustered index,

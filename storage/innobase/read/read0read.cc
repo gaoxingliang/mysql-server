@@ -406,8 +406,10 @@ void ReadView::copy_trx_ids(const trx_ids_t &trx_ids) {
 
     ::memmove(p, &trx_ids[0], n);
   }
-
+  printf("Before copy the limit id for view %p is %d \n", this, m_up_limit_id);
   m_up_limit_id = m_ids.front();
+
+  printf("After copy the limit id for view %p is %d \n", this, m_up_limit_id);
 
 #ifdef UNIV_DEBUG
   /* Assert that all transaction ids in list are active. */
@@ -427,11 +429,12 @@ point in time are seen in the view.
 
 void ReadView::prepare(trx_id_t id) {
   ut_ad(mutex_own(&trx_sys->mutex));
-
+   // printf("prepare called for trx ");
   m_creator_trx_id = id;
 
   m_low_limit_no = m_low_limit_id = m_up_limit_id = trx_sys->max_trx_id;
-
+    printf("After prepare, the all ids are uptdated for view %p , "
+           "m_low_limit_no = m_low_limit_id = m_up_limit_id = = %llu \n", this, m_up_limit_id);
   if (!trx_sys->rw_trx_ids.empty()) {
     copy_trx_ids(trx_sys->rw_trx_ids);
   } else {
@@ -552,6 +555,7 @@ void MVCC::view_open(ReadView *&view, trx_t *trx) {
   }
 
   if (view != NULL) {
+      printf("View is prepared in open funcntion. view is %p and trx is : %p. trx id is %d\n", view, trx, trx->id);
     view->prepare(trx->id);
 
     UT_LIST_ADD_FIRST(m_views, view);
@@ -658,17 +662,21 @@ purge the delete marked record or not.
 
 void MVCC::clone_oldest_view(ReadView *view) {
   mutex_enter(&trx_sys->mutex);
-
+    printf("Cloned view called for view - %p \n", view);
   ReadView *oldest_view = get_oldest_view();
 
   if (oldest_view == NULL) {
+      printf("No oldest view found\n");
     view->prepare(0);
 
     trx_sys_mutex_exit();
 
   } else {
+      printf("\tView is Before copyed from oldeset view and now, current view %p - can't see >= %d. should see < %d, creator is %d .\n",
+             this, view -> m_low_limit_id, view ->m_up_limit_id, view ->m_creator_trx_id);
     view->copy_prepare(*oldest_view);
-
+      printf("\tView is After copyed from oldeset view and now, current view  %p - can't see >= %d. should see < %d, creator is %d . \n",
+             this, view -> m_low_limit_id, view ->m_up_limit_id, view ->m_creator_trx_id);
     trx_sys_mutex_exit();
 
     view->copy_complete();
